@@ -130,21 +130,43 @@ def reproduce_table_3():
             with open(path) as f:
                 results[ds] = json.load(f)
 
-    print(f"{'Method':<35} {'MuSiQue R@2':>12} {'MuSiQue R@5':>12} {'2Wiki R@2':>10} {'2Wiki R@5':>10} {'HotpotQA R@2':>13} {'HotpotQA R@5':>13}")
+    print(f"{'Method':<35} {'MuSiQue':>8} {'':>8} {'2Wiki':>8} {'':>8} {'HotpotQA':>8} {'':>8} {'Avg':>8} {'':>8}")
+    print(f"{'':>35} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8}")
     print("-"*105)
 
-    # Paper values
-    print(f"{'IRCoT+HippoRAG (Paper, Contriever)':<35} {'43.9':>12} {'56.6':>12} {'75.3':>10} {'93.4':>10} {'65.8':>13} {'82.3':>13}")
+    # Paper baselines
+    baselines = [
+        ('IRCoT + BM25 (Default)',        34.2, 44.7, 61.2, 75.6, 65.6, 79.0, 53.7, 66.4),
+        ('IRCoT + Contriever',            39.1, 52.2, 51.6, 63.8, 65.9, 81.6, 52.2, 65.9),
+        ('IRCoT + ColBERTv2',             41.7, 53.7, 64.1, 74.4, 67.9, 82.0, 57.9, 70.0),
+    ]
 
-    # Our values
+    for name, mr2, mr5, wr2, wr5, hr2, hr5, ar2, ar5 in baselines:
+        print(f"{name:<35} {mr2:>8.1f} {mr5:>8.1f} {wr2:>8.1f} {wr5:>8.1f} {hr2:>8.1f} {hr5:>8.1f} {ar2:>8.1f} {ar5:>8.1f}")
+
+    print("-"*105)
+    # Paper HippoRAG
+    print(f"{'IRCoT+HippoRAG (Contriever)':<35} {'43.9':>8} {'56.6':>8} {'75.3':>8} {'93.4':>8} {'65.8':>8} {'82.3':>8} {'61.7':>8} {'77.4':>8}")
+    print(f"{'IRCoT+HippoRAG (ColBERTv2)':<35} {'45.3':>8} {'57.6':>8} {'75.8':>8} {'93.9':>8} {'67.0':>8} {'83.0':>8} {'62.7':>8} {'78.2':>8}")
+
+    print("-"*105)
+    # Our results
     m = results.get('musique', {}).get('retrieval', {})
     w = results.get('2wikimultihopqa', {}).get('retrieval', {})
     h = results.get('hotpotqa', {}).get('retrieval', {})
 
-    if m:
-        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {m.get('Recall@2',0)*100:>12.1f} {m.get('Recall@5',0)*100:>12.1f} {w.get('Recall@2',0)*100:>10.1f} {w.get('Recall@5',0)*100:>10.1f} {h.get('Recall@2',0)*100:>13.1f} {h.get('Recall@5',0)*100:>13.1f}")
+    if m and w and h:
+        mr2 = m.get('Recall@2', 0)*100
+        mr5 = m.get('Recall@5', 0)*100
+        wr2 = w.get('Recall@2', 0)*100
+        wr5 = w.get('Recall@5', 0)*100
+        hr2 = h.get('Recall@2', 0)*100
+        hr5 = h.get('Recall@5', 0)*100
+        ar2 = (mr2 + wr2 + hr2) / 3
+        ar5 = (mr5 + wr5 + hr5) / 3
+        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {mr2:>8.1f} {mr5:>8.1f} {wr2:>8.1f} {wr5:>8.1f} {hr2:>8.1f} {hr5:>8.1f} {ar2:>8.1f} {ar5:>8.1f}")
     else:
-        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {'TBD':>12} {'TBD':>12} {'TBD':>10} {'TBD':>10} {'TBD':>13} {'TBD':>13}")
+        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8}")
 
 def reproduce_table_4():
     """Reproduce Table 4: QA Performance"""
