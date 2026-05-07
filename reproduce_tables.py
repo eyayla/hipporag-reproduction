@@ -75,17 +75,46 @@ def reproduce_table_2():
             with open(path) as f:
                 results[ds] = json.load(f)
 
-    print(f"{'Method':<30} {'MuSiQue R@2':>12} {'MuSiQue R@5':>12} {'2Wiki R@2':>10} {'2Wiki R@5':>10} {'HotpotQA R@2':>13} {'HotpotQA R@5':>13}")
+    print(f"{'Method':<30} {'MuSiQue':>8} {'':>8} {'2Wiki':>8} {'':>8} {'HotpotQA':>8} {'':>8} {'Avg':>8} {'':>8}")
+    print(f"{'':>30} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8} {'R@2':>8} {'R@5':>8}")
     print("-"*100)
 
-    # Paper values
-    print(f"{'HippoRAG (Paper, Contriever)':<30} {'41.0':>12} {'52.1':>12} {'71.5':>10} {'89.5':>10} {'59.0':>13} {'76.2':>13}")
+    # Paper baselines
+    baselines = [
+        ('BM25',                    32.3, 41.2, 51.8, 61.9, 55.4, 72.2, 46.5, 58.4),
+        ('Contriever',              34.8, 46.6, 46.6, 57.5, 57.2, 75.5, 46.2, 59.9),
+        ('GTR',                     37.4, 49.1, 60.2, 67.9, 59.4, 73.3, 52.3, 63.4),
+        ('ColBERTv2',               37.9, 49.2, 59.2, 68.2, 64.7, 79.3, 53.9, 65.6),
+        ('RAPTOR',                  35.7, 45.3, 46.3, 53.8, 58.1, 71.2, 46.7, 56.8),
+        ('RAPTOR (ColBERTv2)',      36.9, 46.5, 57.3, 64.7, 63.1, 75.6, 52.4, 62.3),
+        ('Proposition',             37.6, 49.3, 56.4, 63.1, 58.7, 71.1, 50.9, 61.2),
+        ('Proposition (ColBERTv2)', 37.8, 50.1, 55.9, 64.9, 63.9, 78.1, 52.5, 64.4),
+    ]
 
-    # Our values
-    m  = results.get('musique', {}).get('retrieval', {})
-    w  = results.get('2wikimultihopqa', {}).get('retrieval', {})
-    h  = results.get('hotpotqa', {}).get('retrieval', {})
-    print(f"{'HippoRAG 2 (Ours)':<30} {m.get('Recall@2',0)*100:>12.1f} {m.get('Recall@5',0)*100:>12.1f} {w.get('Recall@2',0)*100:>10.1f} {w.get('Recall@5',0)*100:>10.1f} {h.get('Recall@2',0)*100:>13.1f} {h.get('Recall@5',0)*100:>13.1f}")
+    for name, mr2, mr5, wr2, wr5, hr2, hr5, ar2, ar5 in baselines:
+        print(f"{name:<30} {mr2:>8.1f} {mr5:>8.1f} {wr2:>8.1f} {wr5:>8.1f} {hr2:>8.1f} {hr5:>8.1f} {ar2:>8.1f} {ar5:>8.1f}")
+
+    print("-"*100)
+    # Paper HippoRAG
+    print(f"{'HippoRAG (Contriever)':<30} {'41.0':>8} {'52.1':>8} {'71.5':>8} {'89.5':>8} {'59.0':>8} {'76.2':>8} {'57.2':>8} {'72.6':>8}")
+    print(f"{'HippoRAG (ColBERTv2)':<30} {'40.9':>8} {'51.9':>8} {'70.7':>8} {'89.1':>8} {'60.5':>8} {'77.7':>8} {'57.4':>8} {'72.9':>8}")
+
+    print("-"*100)
+    # Our results
+    m = results.get('musique', {}).get('retrieval', {})
+    w = results.get('2wikimultihopqa', {}).get('retrieval', {})
+    h = results.get('hotpotqa', {}).get('retrieval', {})
+
+    mr2 = m.get('Recall@2', 0)*100
+    mr5 = m.get('Recall@5', 0)*100
+    wr2 = w.get('Recall@2', 0)*100
+    wr5 = w.get('Recall@5', 0)*100
+    hr2 = h.get('Recall@2', 0)*100
+    hr5 = h.get('Recall@5', 0)*100
+    ar2 = (mr2 + wr2 + hr2) / 3
+    ar5 = (mr5 + wr5 + hr5) / 3
+
+    print(f"{'HippoRAG 2 (Ours, NV-Embed-v2)':<30} {mr2:>8.1f} {mr5:>8.1f} {wr2:>8.1f} {wr5:>8.1f} {hr2:>8.1f} {hr5:>8.1f} {ar2:>8.1f} {ar5:>8.1f}")
 
 def reproduce_table_3():
     """Reproduce Table 3: Multi-step retrieval performance (IRCoT)"""
