@@ -176,23 +176,65 @@ def reproduce_table_4():
 
     datasets = ['musique', '2wikimultihopqa', 'hotpotqa']
     results = {}
+    ircot_results = {}
     for ds in datasets:
         path = f'outputs/{ds}/results_meta-llama_Llama-3.1-8B-Instruct.json'
         if os.path.exists(path):
             with open(path) as f:
                 results[ds] = json.load(f)
+        ircot_path = f'outputs/{ds}/results_ircot_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(ircot_path):
+            with open(ircot_path) as f:
+                ircot_results[ds] = json.load(f)
 
-    print(f"{'Method':<30} {'MuSiQue EM':>10} {'MuSiQue F1':>10} {'2Wiki EM':>8} {'2Wiki F1':>8} {'HotpotQA EM':>11} {'HotpotQA F1':>11}")
-    print("-"*95)
+    print(f"{'Method':<35} {'MuSiQue':>8} {'':>8} {'2Wiki':>8} {'':>8} {'HotpotQA':>8} {'':>8} {'Avg':>8} {'':>8}")
+    print(f"{'':>35} {'EM':>8} {'F1':>8} {'EM':>8} {'F1':>8} {'EM':>8} {'F1':>8} {'EM':>8} {'F1':>8}")
+    print("-"*105)
 
-    # Paper values
-    print(f"{'HippoRAG (Paper, ColBERTv2)':<30} {'19.2':>10} {'29.8':>10} {'46.6':>8} {'59.5':>8} {'41.8':>11} {'55.0':>11}")
+    # Paper baselines
+    baselines = [
+        ('None (Paper)',                  12.5, 24.1, 31.0, 39.6, 30.4, 42.8, 24.6, 35.5),
+        ('ColBERTv2 (Paper)',             15.5, 26.4, 33.4, 43.3, 43.4, 57.7, 30.8, 42.5),
+        ('HippoRAG (ColBERTv2, Paper)',   19.2, 29.8, 46.6, 59.5, 41.8, 55.0, 35.9, 48.1),
+        ('IRCoT (ColBERTv2, Paper)',      19.1, 30.5, 35.4, 45.1, 45.5, 58.4, 33.3, 44.7),
+        ('IRCoT+HippoRAG (ColBERTv2)',    21.9, 33.3, 47.7, 62.7, 45.7, 59.2, 38.4, 51.7),
+    ]
 
-    # Our values
+    for name, mem, mf1, wem, wf1, hem, hf1, aem, af1 in baselines:
+        print(f"{name:<35} {mem:>8.1f} {mf1:>8.1f} {wem:>8.1f} {wf1:>8.1f} {hem:>8.1f} {hf1:>8.1f} {aem:>8.1f} {af1:>8.1f}")
+
+    print("-"*105)
+    # Our results
     m = results.get('musique', {}).get('qa', {})
     w = results.get('2wikimultihopqa', {}).get('qa', {})
     h = results.get('hotpotqa', {}).get('qa', {})
-    print(f"{'HippoRAG 2 (Ours)':<30} {m.get('ExactMatch',0)*100:>10.1f} {m.get('F1',0)*100:>10.1f} {w.get('ExactMatch',0)*100:>8.1f} {w.get('F1',0)*100:>8.1f} {h.get('ExactMatch',0)*100:>11.1f} {h.get('F1',0)*100:>11.1f}")
+
+    mem = m.get('ExactMatch', 0)*100
+    mf1 = m.get('F1', 0)*100
+    wem = w.get('ExactMatch', 0)*100
+    wf1 = w.get('F1', 0)*100
+    hem = h.get('ExactMatch', 0)*100
+    hf1 = h.get('F1', 0)*100
+    aem = (mem + wem + hem) / 3
+    af1 = (mf1 + wf1 + hf1) / 3
+    print(f"{'HippoRAG 2 (Ours)':<35} {mem:>8.1f} {mf1:>8.1f} {wem:>8.1f} {wf1:>8.1f} {hem:>8.1f} {hf1:>8.1f} {aem:>8.1f} {af1:>8.1f}")
+
+    # IRCoT results
+    im = ircot_results.get('musique', {}).get('qa', {})
+    iw = ircot_results.get('2wikimultihopqa', {}).get('qa', {})
+    ih = ircot_results.get('hotpotqa', {}).get('qa', {})
+    if im and iw and ih:
+        imem = im.get('ExactMatch', 0)*100
+        imf1 = im.get('F1', 0)*100
+        iwem = iw.get('ExactMatch', 0)*100
+        iwf1 = iw.get('F1', 0)*100
+        ihem = ih.get('ExactMatch', 0)*100
+        ihf1 = ih.get('F1', 0)*100
+        iaem = (imem + iwem + ihem) / 3
+        iaf1 = (imf1 + iwf1 + ihf1) / 3
+        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {imem:>8.1f} {imf1:>8.1f} {iwem:>8.1f} {iwf1:>8.1f} {ihem:>8.1f} {ihf1:>8.1f} {iaem:>8.1f} {iaf1:>8.1f}")
+    else:
+        print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8}")
 
 def reproduce_table_5():
     """Reproduce Table 5: Ablation Study"""
