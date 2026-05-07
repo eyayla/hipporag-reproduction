@@ -123,9 +123,43 @@ def reproduce_table_4():
     h = results.get('hotpotqa', {}).get('qa', {})
     print(f"{'HippoRAG 2 (Ours)':<30} {m.get('ExactMatch',0)*100:>10.1f} {m.get('F1',0)*100:>10.1f} {w.get('ExactMatch',0)*100:>8.1f} {w.get('F1',0)*100:>8.1f} {h.get('ExactMatch',0)*100:>11.1f} {h.get('F1',0)*100:>11.1f}")
 
+def reproduce_table_5():
+    """Reproduce Table 5: Ablation Study"""
+    print("\n" + "="*60)
+    print("TABLE 5: Dissecting HippoRAG (Ablation Study)")
+    print("="*60)
+
+    print(f"{'Method':<35} {'MuSiQue R@2':>12} {'MuSiQue R@5':>12} {'2Wiki R@2':>10} {'2Wiki R@5':>10} {'HotpotQA R@2':>13} {'HotpotQA R@5':>13}")
+    print("-"*110)
+
+    # Paper values
+    print("-- Paper values (HippoRAG 1, ColBERTv2) --")
+    print(f"{'HippoRAG (baseline)':<35} {'40.9':>12} {'51.9':>12} {'70.7':>10} {'89.1':>10} {'60.5':>13} {'77.7':>13}")
+    print(f"{'OpenIE: Llama-3.1-8B':<35} {'40.8':>12} {'51.9':>12} {'62.5':>10} {'77.5':>10} {'59.9':>13} {'75.1':>13}")
+    print(f"{'OpenIE: Llama-3.1-70B':<35} {'41.8':>12} {'53.7':>12} {'68.8':>10} {'85.3':>10} {'60.8':>13} {'78.6':>13}")
+
+    print("\n-- Our values (HippoRAG 2, Llama-3.1-8B OpenIE) --")
+    # Our results use Llama-3.1-8B for OpenIE
+    datasets = ['musique', '2wikimultihopqa', 'hotpotqa']
+    results = {}
+    for ds in datasets:
+        path = f'outputs/{ds}/results_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(path):
+            with open(path) as f:
+                results[ds] = json.load(f)
+
+    m = results.get('musique', {}).get('retrieval', {})
+    w = results.get('2wikimultihopqa', {}).get('retrieval', {})
+    h = results.get('hotpotqa', {}).get('retrieval', {})
+    print(f"{'OpenIE: Llama-3.1-8B (Ours)':<35} {m.get('Recall@2',0)*100:>12.1f} {m.get('Recall@5',0)*100:>12.1f} {w.get('Recall@2',0)*100:>10.1f} {w.get('Recall@5',0)*100:>10.1f} {h.get('Recall@2',0)*100:>13.1f} {h.get('Recall@5',0)*100:>13.1f}")
+    print("\nNote: Full ablation study (PPR alternatives, w/o Node Specificity)")
+    print("requires additional experiments not yet completed.")
+
+
 if __name__ == "__main__":
     reproduce_table_1()
     reproduce_table_2()
     reproduce_table_3()
     reproduce_table_4()
+    reproduce_table_5()
     print("\nDone!")
