@@ -97,8 +97,35 @@ def reproduce_table_3():
     else:
         print(f"{'IRCoT+HippoRAG 2 (Ours)':<35} {'TBD':>12} {'TBD':>12} {'TBD':>10} {'TBD':>10} {'TBD':>13} {'TBD':>13}")
 
+def reproduce_table_4():
+    """Reproduce Table 4: QA Performance"""
+    print("\n" + "="*60)
+    print("TABLE 4: QA Performance")
+    print("="*60)
+
+    datasets = ['musique', '2wikimultihopqa', 'hotpotqa']
+    results = {}
+    for ds in datasets:
+        path = f'outputs/{ds}/results_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(path):
+            with open(path) as f:
+                results[ds] = json.load(f)
+
+    print(f"{'Method':<30} {'MuSiQue EM':>10} {'MuSiQue F1':>10} {'2Wiki EM':>8} {'2Wiki F1':>8} {'HotpotQA EM':>11} {'HotpotQA F1':>11}")
+    print("-"*95)
+
+    # Paper values
+    print(f"{'HippoRAG (Paper, ColBERTv2)':<30} {'19.2':>10} {'29.8':>10} {'46.6':>8} {'59.5':>8} {'41.8':>11} {'55.0':>11}")
+
+    # Our values
+    m = results.get('musique', {}).get('qa', {})
+    w = results.get('2wikimultihopqa', {}).get('qa', {})
+    h = results.get('hotpotqa', {}).get('qa', {})
+    print(f"{'HippoRAG 2 (Ours)':<30} {m.get('ExactMatch',0)*100:>10.1f} {m.get('F1',0)*100:>10.1f} {w.get('ExactMatch',0)*100:>8.1f} {w.get('F1',0)*100:>8.1f} {h.get('ExactMatch',0)*100:>11.1f} {h.get('F1',0)*100:>11.1f}")
+
 if __name__ == "__main__":
     reproduce_table_1()
     reproduce_table_2()
     reproduce_table_3()
+    reproduce_table_4()
     print("\nDone!")
