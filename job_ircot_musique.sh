@@ -27,7 +27,7 @@ echo "=============================="
 
 python main_ircot.py \
   --dataset musique \
-  --llm_base_url "http://192.168.1.41:8000/v1" \
+  --llm_base_url "http://192.168.1.209:8000/v1" \
   --llm_name "meta-llama/Llama-3.1-8B-Instruct" \
   --embedding_name nvidia/NV-Embed-v2
 

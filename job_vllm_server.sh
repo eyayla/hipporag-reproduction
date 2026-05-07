@@ -5,7 +5,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
-#SBATCH --time=08:00:00
+#SBATCH --time=10:00:00
 #SBATCH --output=/work/coa258/hippoRAG/logs/%j_vllm.out
 #SBATCH --error=/work/coa258/hippoRAG/logs/%j_vllm.err
 
@@ -13,7 +13,7 @@ source ~/.bashrc
 conda activate hipporag
 
 export HF_HOME=/scratch/coa258/hf_cache
-export HUGGING_FACE_HUB_TOKEN="YOUR_HF_TOKEN_HERE"
+export HUGGING_FACE_HUB_TOKEN=$(cat ~/.cache/huggingface/token)
 export CUDA_VISIBLE_DEVICES=0
 export VLLM_WORKER_MULTIPROC_METHOD=spawn
 
