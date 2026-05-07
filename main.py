@@ -88,6 +88,7 @@ def main():
     parser.add_argument('--openie_mode', choices=['online', 'offline'], default='online',
                         help="OpenIE mode, offline denotes using VLLM offline batch mode for indexing, while online denotes")
     parser.add_argument('--save_dir', type=str, default='outputs', help='Save directory')
+    parser.add_argument('--synonymy_edge_sim_threshold', type=float, default=None)
     args = parser.parse_args()
 
     dataset_name = args.dataset
@@ -138,6 +139,9 @@ def main():
         corpus_len=len(corpus),
         openie_mode=args.openie_mode
     )
+
+    if args.synonymy_edge_sim_threshold is not None:
+        config.synonymy_edge_sim_threshold = args.synonymy_edge_sim_threshold
 
     logging.basicConfig(level=logging.INFO)
 
