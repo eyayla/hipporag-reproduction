@@ -9,18 +9,17 @@ def reproduce_table_1():
     print("="*60)
 
     datasets = [
-        ('MuSiQue', 'outputs/musique/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2'),
-        ('HotpotQA', 'outputs/hotpotqa/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2'),
-        ('2Wiki', 'outputs/2wikimultihopqa/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2'),
+        ('MuSiQue', 'outputs/musique/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2', 'musique'),
+        ('2Wiki', 'outputs/2wikimultihopqa/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2', '2wikimultihopqa'),
+        ('HotpotQA', 'outputs/hotpotqa/meta-llama_Llama-3.1-8B-Instruct_nvidia_NV-Embed-v2', 'hotpotqa'),
     ]
 
-    print(f"{'Metric':<25} {'MuSiQue':>12} {'2Wiki':>12} {'HotpotQA':>12}")
-    print("-"*65)
+    passages, nodes, edges, triples, synonym_edges = {}, {}, {}, {}, {}
 
-    passages, nodes, edges = {}, {}, {}
-    for name, path in datasets:
+    for name, path, ds in datasets:
         with open(f'{path}/graph.pickle', 'rb') as f:
             G = pickle.load(f)
+
         passage_ids = set(v.index for v in G.vs if v['hash_id'].startswith('chunk-'))
         entity_ids  = set(v.index for v in G.vs if v['hash_id'].startswith('entity-'))
         ee_edge_pairs = set()
@@ -28,18 +27,39 @@ def reproduce_table_1():
             s, t = e.source, e.target
             if s in entity_ids and t in entity_ids:
                 ee_edge_pairs.add((min(s,t), max(s,t)))
+
         passages[name] = len(passage_ids)
         nodes[name] = len(entity_ids)
         edges[name] = len(ee_edge_pairs)
 
-    print(f"{'# of Passages':<25} {passages['MuSiQue']:>12,} {passages['2Wiki']:>12,} {passages['HotpotQA']:>12,}")
-    print(f"{'# of Unique Nodes':<25} {nodes['MuSiQue']:>12,} {nodes['2Wiki']:>12,} {nodes['HotpotQA']:>12,}")
-    print(f"{'# of Unique Edges':<25} {edges['MuSiQue']:>12,} {edges['2Wiki']:>12,} {edges['HotpotQA']:>12,}")
+        with open(f'outputs/{ds}/openie_results_ner_meta-llama_Llama-3.1-8B-Instruct.json') as f:
+            openie_data = json.load(f)
 
-    print("\nPaper values (HippoRAG 1):")
-    print(f"{'# of Passages':<25} {'11,656':>12} {'6,119':>12} {'9,221':>12}")
-    print(f"{'# of Unique Nodes':<25} {'91,729':>12} {'42,694':>12} {'82,157':>12}")
-    print(f"{'# of Unique Edges':<25} {'21,714':>12} {'7,867':>12} {'17,523':>12}")
+        t_set = set()
+        triple_count = 0
+        for chunk in openie_data['docs']:
+            if isinstance(chunk, dict):
+                for t in chunk.get('extracted_triples', []):
+                    if isinstance(t, list) and len(t) == 3:
+                        t_set.add(tuple(t))
+                        triple_count += 1
+        triples[name] = len(t_set)
+        synonym_edges[name] = G.ecount() - triple_count
+
+    print(f"{'Metric':<30} {'MuSiQue':>12} {'2Wiki':>12} {'HotpotQA':>12}")
+    print("-"*70)
+    print(f"{'# of Passages':<30} {passages['MuSiQue']:>12,} {passages['2Wiki']:>12,} {passages['HotpotQA']:>12,}")
+    print(f"{'# of Unique Nodes':<30} {nodes['MuSiQue']:>12,} {nodes['2Wiki']:>12,} {nodes['HotpotQA']:>12,}")
+    print(f"{'# of Unique Edges':<30} {edges['MuSiQue']:>12,} {edges['2Wiki']:>12,} {edges['HotpotQA']:>12,}")
+    print(f"{'# of Unique Triples':<30} {triples['MuSiQue']:>12,} {triples['2Wiki']:>12,} {triples['HotpotQA']:>12,}")
+    print(f"{'NV-Embed-v2 Synonym Edges':<30} {synonym_edges['MuSiQue']:>12,} {synonym_edges['2Wiki']:>12,} {synonym_edges['HotpotQA']:>12,}")
+
+    print("\n-- Paper values (HippoRAG 1, GPT-3.5 + ColBERTv2) --")
+    print(f"{'# of Passages':<30} {'11,656':>12} {'6,119':>12} {'9,221':>12}")
+    print(f"{'# of Unique Nodes':<30} {'91,729':>12} {'42,694':>12} {'82,157':>12}")
+    print(f"{'# of Unique Edges':<30} {'21,714':>12} {'7,867':>12} {'17,523':>12}")
+    print(f"{'# of Unique Triples':<30} {'107,448':>12} {'50,671':>12} {'98,709':>12}")
+    print(f"{'ColBERTv2 Synonym Edges':<30} {'191,636':>12} {'82,526':>12} {'171,856':>12}")
 
 def reproduce_table_2():
     """Reproduce Table 2: Single-step retrieval performance"""
