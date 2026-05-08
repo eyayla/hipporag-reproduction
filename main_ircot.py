@@ -86,9 +86,9 @@ def ircot_retrieve(hipporag, query, passages, thoughts, max_steps=2):
             break
 
         # Yeni düşünceyi sorgu olarak kullan ve tekrar retrieve et
-        new_results = hipporag.retrieve(queries=[thought], num_to_retrieve=2)
+        new_results = hipporag.retrieve(queries=[thought], num_to_retrieve=5)
         if new_results:
-            for doc in new_results[0].docs[:2]:
+            for doc in new_results[0].docs[:5]:
                 if doc not in all_passages:
                     all_passages.append(doc)
 
@@ -128,16 +128,28 @@ def main():
     hipporag = HippoRAG(global_config=config)
     hipporag.index(docs)
 
+    # Retrieval evaluation
+    from src.hipporag.evaluation.retrieval_eval import RetrievalRecallEvaluator
+    evaluator = RetrievalRecallEvaluator()
+    k_list = [1, 2, 5, 10, 20, 30, 50, 100, 150, 200]
+    ircot_retrieval_result, _ = evaluator.calculate_metric_scores(
+        gold_docs=gold_docs,
+        retrieved_docs=all_retrieved,
+        k_list=k_list
+    )
+    ircot_retrieval_result = {k: round(float(v), 4) for k, v in ircot_retrieval_result.items()}
+    logger.info(f"IRCoT Retrieval results: {ircot_retrieval_result}")
+ 
     # IRCoT retrieval + QA
     logger.info("Starting IRCoT retrieval...")
     all_retrieved = []
 
     for i, query in enumerate(all_queries):
         # İlk retrieval
-        initial_results = hipporag.retrieve(queries=[query], num_to_retrieve=2)
+        initial_results = hipporag.retrieve(queries=[query], num_to_retrieve=5)
         initial_passages = []
         if initial_results:
-            initial_passages = initial_results[0].docs[:2]
+            initial_passages = initial_results[0].docs[:5]
 
         # IRCoT ile genişlet
         final_passages, thoughts = ircot_retrieve(
@@ -152,19 +164,41 @@ def main():
         if i % 100 == 0:
             logger.info(f"Processed {i}/{len(all_queries)} queries")
 
-    # QA
+    # QA - IRCoT retrieved passages kullanarak
     logger.info("Starting QA...")
-    result = hipporag.rag_qa(queries=all_queries, gold_docs=gold_docs, gold_answers=gold_answers)
-
-    if result is not None and len(result) >= 5:
-        _, _, _, retrieval_result, qa_results = result
+    from src.hipporag.utils.misc_utils import QuerySolution
+    
+    # IRCoT sonuçlarını QuerySolution'a dönüştür
+    ircot_solutions = []
+    for i, query in enumerate(all_queries):
+        qs = QuerySolution(question=query, docs=all_retrieved[i], doc_scores=np.array([1.0]*len(all_retrieved[i])))
+        ircot_solutions.append(qs)
+ 
+    result = hipporag.rag_qa(queries=ircot_solutions, gold_docs=gold_docs, gold_answers=gold_answers)
+    if result is not None:
+        if len(result) >= 5:
+            solutions, _, _, retrieval_result, qa_results = result
+        else:
+            solutions, _, _ = result
+            retrieval_result = None
+            # QA sonuçlarını manuel hesapla
+            from src.hipporag.evaluation.qa_eval import QAEvaluator
+            evaluator = QAEvaluator()
+            qa_results = evaluator.evaluate(solutions, gold_answers)
+        
+        # Debug
+        for s in solutions[:2]:
+            print(f"Q: {s.question}")
+            print(f"A: {s.answer}")
+            print(f"Gold: {s.gold_answers}")
+        
         out = {
             'dataset': args.dataset,
             'llm': args.llm_name,
             'embedding': args.embedding_name,
             'method': 'IRCoT+HippoRAG',
             'max_steps': args.max_steps,
-            'retrieval': retrieval_result,
+            'retrieval':ircot_retrieval_result,
             'qa': qa_results
         }
         out_path = f'outputs/{args.dataset}/results_ircot_{args.llm_name.replace("/","_")}.json'

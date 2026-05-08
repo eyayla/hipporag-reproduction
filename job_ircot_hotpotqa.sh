@@ -6,8 +6,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --gres=gpu:1
 #SBATCH --time=08:00:00
-#SBATCH --output=/work/coa258/hippoRAG/logs/%j_ircot_musique.out
-#SBATCH --error=/work/coa258/hippoRAG/logs/%j_ircot_musique.err
+#SBATCH --output=/work/coa258/hippoRAG/logs/%j_ircot_hotpotqa.out
+#SBATCH --error=/work/coa258/hippoRAG/logs/%j_ircot_hotpotqa.err
 
 source ~/.bashrc
 conda activate hipporag
@@ -26,7 +26,7 @@ echo "Başlangıç  : $(date)"
 echo "=============================="
 
 python main_ircot.py \
-  --dataset musique \
+  --dataset hotpotqa \
   --llm_base_url "http://192.168.1.210:8000/v1" \
   --llm_name "meta-llama/Llama-3.1-8B-Instruct" \
   --embedding_name nvidia/NV-Embed-v2
