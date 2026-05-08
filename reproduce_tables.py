@@ -310,6 +310,62 @@ def reproduce_table_6():
         print(f"{'HippoRAG 2 (Ours)':<25} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8}")
         print("\nNote: Running new jobs with all_recall computation.")
 
+def reproduce_table_7():
+    """Reproduce Table 7: Multi-hop question types"""
+    print("\n" + "="*60)
+    print("TABLE 7: Multi-hop Question Types")
+    print("="*60)
+
+    import os
+    os.environ['OPENAI_API_KEY'] = 'local'
+    os.environ['HF_HOME'] = '/scratch/coa258/hf_cache'
+
+    from src.hipporag.HippoRAG import HippoRAG
+    from src.hipporag.utils.config_utils import BaseConfig
+
+    config = BaseConfig(
+        llm_name='meta-llama/Llama-3.1-8B-Instruct',
+        llm_base_url='http://192.168.1.210:8000/v1',
+        embedding_model_name='nvidia/NV-Embed-v2',
+        dataset='musique',
+    )
+
+    hipporag = HippoRAG(global_config=config)
+
+    queries = [
+        'In which district was Alhandra born?',
+        "Which Stanford professor works on the neuroscience of Alzheimer's?"
+    ]
+
+    paper_hipporag = [
+        ['Alhandra', 'Vila de Xira', 'Portugal'],
+        ['Thomas Südhof', 'Karl Deisseroth', 'Robert Sapolsky'],
+    ]
+
+    paper_colbert = [
+        ['Alhandra', 'Dimuthu Abayakoon', "Ja'ar"],
+        ['Brian Knutson', 'Eric Knudsen', 'Lisa Giocomo'],
+    ]
+
+    paper_ircot = [
+        ['Alhandra', 'Vila de Xira', 'Póvoa de Santa Iria'],
+        ['Brian Knutson', 'Eric Knudsen', 'Lisa Giocomo'],
+    ]
+
+    results = hipporag.retrieve(queries=queries, num_to_retrieve=3)
+
+    for i, (query, result) in enumerate(zip(queries, results)):
+        print(f"\nQ: {query}")
+        print(f"{'Method':<20} {'Top-1':<30} {'Top-2':<30} {'Top-3':<30}")
+        print("-"*115)
+        our_docs = [doc.split('\n')[0][:28] for doc in result.docs[:3]]
+        while len(our_docs) < 3:
+            our_docs.append('N/A')
+        print(f"{'HippoRAG 2 (Ours)':<20} {our_docs[0]:<30} {our_docs[1]:<30} {our_docs[2]:<30}")
+        print(f"{'HippoRAG (Paper)':<20} {paper_hipporag[i][0]:<30} {paper_hipporag[i][1]:<30} {paper_hipporag[i][2]:<30}")
+        print(f"{'ColBERTv2 (Paper)':<20} {paper_colbert[i][0]:<30} {paper_colbert[i][1]:<30} {paper_colbert[i][2]:<30}")
+        print(f"{'IRCoT (Paper)':<20} {paper_ircot[i][0]:<30} {paper_ircot[i][1]:<30} {paper_ircot[i][2]:<30}")
+
 
 if __name__ == "__main__":
     reproduce_table_1()
@@ -318,4 +374,5 @@ if __name__ == "__main__":
     reproduce_table_4()
     reproduce_table_5()
     reproduce_table_6()
+    reproduce_table_7()
     print("\nDone!")
