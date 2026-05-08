@@ -153,12 +153,31 @@ def main():
     result = hipporag.rag_qa(queries=all_queries, gold_docs=gold_docs, gold_answers=gold_answers)
     if result is not None and len(result) >= 5:
         queries_solutions, _, _, retrieval_result, qa_results = result
+        
+        # Per-query all-recall hesapla
+        all_recall_2 = []
+        all_recall_5 = []
+        for qs in queries_solutions:
+            if qs.gold_docs and qs.docs:
+                retrieved_set_2 = set(qs.docs[:2])
+                retrieved_set_5 = set(qs.docs[:5])
+                gold_set = set(qs.gold_docs)
+                all_recall_2.append(1.0 if gold_set.issubset(retrieved_set_2) else 0.0)
+                all_recall_5.append(1.0 if gold_set.issubset(retrieved_set_5) else 0.0)
+
+        ar2 = sum(all_recall_2) / len(all_recall_2) if all_recall_2 else None
+        ar5 = sum(all_recall_5) / len(all_recall_5) if all_recall_5 else None
+
         out = {
             'dataset': args.dataset,
             'llm': args.llm_name,
             'embedding': args.embedding_name,
             'retrieval': retrieval_result,
-            'qa': qa_results
+            'qa': qa_results,
+            'all_recall': {
+                'AR@2': round(ar2, 4) if ar2 is not None else None,
+                'AR@5': round(ar5, 4) if ar5 is not None else None,
+            }
         }
         out_path = os.path.join('outputs', args.dataset, f'results_{args.llm_name.replace("/","_")}.json')
         with open(out_path, 'w') as f:

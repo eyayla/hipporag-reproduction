@@ -268,6 +268,48 @@ def reproduce_table_5():
     print("\nNote: Full ablation study (PPR alternatives, w/o Node Specificity)")
     print("requires additional experiments not yet completed.")
 
+def reproduce_table_6():
+    """Reproduce Table 6: All-Recall Metric"""
+    print("\n" + "="*60)
+    print("TABLE 6: All-Recall Metric (AR@2, AR@5)")
+    print("="*60)
+
+    datasets = ['musique', '2wikimultihopqa', 'hotpotqa']
+    results = {}
+    for ds in datasets:
+        path = f'outputs/{ds}/results_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(path):
+            with open(path) as f:
+                results[ds] = json.load(f)
+
+    print(f"{'Method':<25} {'MuSiQue':>8} {'':>8} {'2Wiki':>8} {'':>8} {'HotpotQA':>8} {'':>8} {'Avg':>8} {'':>8}")
+    print(f"{'':>25} {'AR@2':>8} {'AR@5':>8} {'AR@2':>8} {'AR@5':>8} {'AR@2':>8} {'AR@5':>8} {'AR@2':>8} {'AR@5':>8}")
+    print("-"*95)
+
+    # Paper values
+    print(f"{'ColBERTv2 (Paper)':<25} {6.8:>8.1f} {16.1:>8.1f} {25.1:>8.1f} {37.1:>8.1f} {33.3:>8.1f} {59.0:>8.1f} {21.7:>8.1f} {37.4:>8.1f}")
+    print(f"{'HippoRAG (Paper)':<25} {10.2:>8.1f} {22.4:>8.1f} {45.4:>8.1f} {75.7:>8.1f} {33.8:>8.1f} {57.9:>8.1f} {29.8:>8.1f} {52.0:>8.1f}")
+    print("-"*95)
+
+    # Our results
+    m = results.get('musique', {}).get('all_recall', {})
+    w = results.get('2wikimultihopqa', {}).get('all_recall', {})
+    h = results.get('hotpotqa', {}).get('all_recall', {})
+
+    if m and w and h:
+        mar2 = (m.get('AR@2') or 0) * 100
+        mar5 = (m.get('AR@5') or 0) * 100
+        war2 = (w.get('AR@2') or 0) * 100
+        war5 = (w.get('AR@5') or 0) * 100
+        har2 = (h.get('AR@2') or 0) * 100
+        har5 = (h.get('AR@5') or 0) * 100
+        aar2 = (mar2 + war2 + har2) / 3
+        aar5 = (mar5 + war5 + har5) / 3
+        print(f"{'HippoRAG 2 (Ours)':<25} {mar2:>8.1f} {mar5:>8.1f} {war2:>8.1f} {war5:>8.1f} {har2:>8.1f} {har5:>8.1f} {aar2:>8.1f} {aar5:>8.1f}")
+    else:
+        print(f"{'HippoRAG 2 (Ours)':<25} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8} {'TBD':>8}")
+        print("\nNote: Running new jobs with all_recall computation.")
+
 
 if __name__ == "__main__":
     reproduce_table_1()
@@ -275,4 +317,5 @@ if __name__ == "__main__":
     reproduce_table_3()
     reproduce_table_4()
     reproduce_table_5()
+    reproduce_table_6()
     print("\nDone!")
