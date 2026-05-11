@@ -205,9 +205,9 @@ def reproduce_table_4():
 
     print("-"*105)
     # Our results
-    m = results.get('musique', {}).get('qa', {})
-    w = results.get('2wikimultihopqa', {}).get('qa', {})
-    h = results.get('hotpotqa', {}).get('qa', {})
+    m = results.get('musique', {}).get('qa', {}) or {}
+    w = results.get('2wikimultihopqa', {}).get('qa', {}) or {}
+    h = results.get('hotpotqa', {}).get('qa', {}) or {}
 
     mem = m.get('ExactMatch', 0)*100
     mf1 = m.get('F1', 0)*100
@@ -261,10 +261,22 @@ def reproduce_table_5():
             with open(path) as f:
                 results[ds] = json.load(f)
 
-    m = results.get('musique', {}).get('retrieval', {})
-    w = results.get('2wikimultihopqa', {}).get('retrieval', {})
-    h = results.get('hotpotqa', {}).get('retrieval', {})
+    m = results.get('musique', {}).get('retrieval', {}) or {}
+    w = results.get('2wikimultihopqa', {}).get('retrieval', {}) or {}
+    h = results.get('hotpotqa', {}).get('retrieval', {}) or {}
     print(f"{'OpenIE: Llama-3.1-8B (Ours)':<35} {m.get('Recall@2',0)*100:>12.1f} {m.get('Recall@5',0)*100:>12.1f} {w.get('Recall@2',0)*100:>10.1f} {w.get('Recall@5',0)*100:>10.1f} {h.get('Recall@2',0)*100:>13.1f} {h.get('Recall@5',0)*100:>13.1f}")
+    # w/o Synonymy Edges
+    nosyn_results = {}
+    for ds, path in [('musique','outputs_nosyn_musique'), ('2wikimultihopqa','outputs_nosyn_2wikimultihopqa'), ('hotpotqa','outputs_nosyn_hotpotqa')]:
+        fpath = f'{path}/results_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(fpath):
+            with open(fpath) as f:
+                nosyn_results[ds] = json.load(f)
+
+    nm = nosyn_results.get('musique', {}).get('retrieval', {}) or {}
+    nw = nosyn_results.get('2wikimultihopqa', {}).get('retrieval', {}) or {}
+    nh = nosyn_results.get('hotpotqa', {}).get('retrieval', {}) or {}
+    print(f"{'w/o Synonymy Edges (Ours)':<35} {nm.get('Recall@2',0)*100:>12.1f} {nm.get('Recall@5',0)*100:>12.1f} {nw.get('Recall@2',0)*100:>10.1f} {nw.get('Recall@5',0)*100:>10.1f} {nh.get('Recall@2',0)*100:>13.1f} {nh.get('Recall@5',0)*100:>13.1f}")
     print("\nNote: Full ablation study (PPR alternatives, w/o Node Specificity)")
     print("requires additional experiments not yet completed.")
 
