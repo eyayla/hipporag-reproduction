@@ -88,6 +88,7 @@ def main():
     parser.add_argument('--openie_mode', choices=['online', 'offline'], default='online',
                         help="OpenIE mode, offline denotes using VLLM offline batch mode for indexing, while online denotes")
     parser.add_argument('--save_dir', type=str, default='outputs', help='Save directory')
+    parser.add_argument('--qa_top_k', type=int, default=5, help='Number of top passages for QA')
     parser.add_argument('--synonymy_edge_sim_threshold', type=float, default=None)
     args = parser.parse_args()
 
@@ -116,7 +117,7 @@ def main():
     gold_answers = get_gold_answers(samples)
     try:
         gold_docs = get_gold_docs(samples, dataset_name)
-        assert len(all_queries) == len(gold_docs) == len(gold_answers), "Length of queries, gold_docs, and gold_answers should be the same."
+        assert len(all_queries) == len(gold_docs) == len(gold_answers)
     except:
         gold_docs = None
 
@@ -132,7 +133,7 @@ def main():
         retrieval_top_k=200,
         linking_top_k=5,
         max_qa_steps=3,
-        qa_top_k=5,
+        qa_top_k=args.qa_top_k,
         graph_type="facts_and_sim_passage_node_unidirectional",
         embedding_batch_size=8,
         max_new_tokens=None,
@@ -149,14 +150,33 @@ def main():
 
     hipporag.index(docs)
 
-    # Retrieval and QA
-    result = hipporag.rag_qa(queries=all_queries, gold_docs=gold_docs, gold_answers=gold_answers)
-    if result is not None and len(result) >= 5:
-        queries_solutions, _, _, retrieval_result, qa_results = result
-        
-        # Per-query all-recall hesapla
-        all_recall_2 = []
-        all_recall_5 = []
+    
+    retrieval_result = None
+    qa_results = None
+    queries_solutions = None
+    try:
+        if gold_docs is not None:
+            query_solutions, retrieval_result = hipporag.retrieve(queries=all_queries, gold_docs=gold_docs)
+        else:
+            query_solutions = hipporag.retrieve(queries=all_queries)
+            retrieval_result = None
+        queries_solutions = query_solutions
+        saved_retrieval_result = retrieval_result  # retrieval sonucunu sakla
+    except Exception as e:
+        logging.warning(f"Retrieval failed: {e}")
+    try:
+        if queries_solutions is not None:
+            result = hipporag.rag_qa(queries=queries_solutions, gold_docs=gold_docs, gold_answers=gold_answers)
+            if result is not None and len(result) >= 5:
+                queries_solutions, _, _, _, qa_results = result
+            retrieval_result = saved_retrieval_result  # saklanan retrieval sonucunu geri yükle
+    except Exception as e:
+        logging.warning(f"QA failed: {e}")
+        logging.warning(f"QA failed: {e}")
+
+    # Per-query all-recall hesapla
+    all_recall_2, all_recall_5 = [], []
+    if queries_solutions:
         for qs in queries_solutions:
             if qs.gold_docs and qs.docs:
                 retrieved_set_2 = set(qs.docs[:2])
@@ -164,25 +184,24 @@ def main():
                 gold_set = set(qs.gold_docs)
                 all_recall_2.append(1.0 if gold_set.issubset(retrieved_set_2) else 0.0)
                 all_recall_5.append(1.0 if gold_set.issubset(retrieved_set_5) else 0.0)
+    ar2 = sum(all_recall_2) / len(all_recall_2) if all_recall_2 else None
+    ar5 = sum(all_recall_5) / len(all_recall_5) if all_recall_5 else None
 
-        ar2 = sum(all_recall_2) / len(all_recall_2) if all_recall_2 else None
-        ar5 = sum(all_recall_5) / len(all_recall_5) if all_recall_5 else None
-
-        out = {
-            'dataset': args.dataset,
-            'llm': args.llm_name,
-            'embedding': args.embedding_name,
-            'retrieval': retrieval_result,
-            'qa': qa_results,
-            'all_recall': {
-                'AR@2': round(ar2, 4) if ar2 is not None else None,
-                'AR@5': round(ar5, 4) if ar5 is not None else None,
-            }
+    out = {
+        'dataset': args.dataset,
+        'llm': args.llm_name,
+        'embedding': args.embedding_name,
+        'retrieval': retrieval_result,
+        'qa': qa_results,
+        'all_recall': {
+            'AR@2': round(ar2, 4) if ar2 is not None else None,
+            'AR@5': round(ar5, 4) if ar5 is not None else None,
         }
-        out_path = os.path.join('outputs', args.dataset, f'results_{args.llm_name.replace("/","_")}.json')
-        with open(out_path, 'w') as f:
-            json.dump(out, f, indent=2)
-        print(f'Results saved to {out_path}')
+    }
+    out_path = os.path.join(save_dir, f'results_{args.llm_name.replace("/","_")}.json')
+    with open(out_path, 'w') as f:
+        json.dump(out, f, indent=2)
+    print(f'Results saved to {out_path}')
 
 if __name__ == "__main__":
     main()
