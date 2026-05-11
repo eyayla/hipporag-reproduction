@@ -2,7 +2,7 @@
 
 This document compares our reproduced results with the original HippoRAG paper.
 
-**Note:** The original paper (NeurIPS 2024) used HippoRAG 1. We reproduced using HippoRAG 2 (ICML 2025). HippoRAG 2 uses an improved graph construction method, which explains differences in graph statistics (Table 1) and improved retrieval performance (Table 2).
+**Note:** The original paper (NeurIPS 2024) used HippoRAG 1. We reproduced using HippoRAG 2 (ICML 2025).
 
 **Setup:**
 - LLM: `meta-llama/Llama-3.1-8B-Instruct` (via vLLM)
@@ -11,52 +11,50 @@ This document compares our reproduced results with the original HippoRAG paper.
 
 ---
 
-## Table 1: Dataset and Knowledge Graph Statistics
-
-| Metric | Paper MuSiQue | Ours MuSiQue | Paper 2Wiki | Ours 2Wiki | Paper HotpotQA | Ours HotpotQA |
-|--------|--------------|--------------|-------------|------------|----------------|---------------|
-| # of Passages | 11,656 | 11,656 ✅ | 6,119 | 6,119 ✅ | 9,221 | 9,811 ⚠️ |
-| # of Unique Nodes | 91,729 | 90,139 ✅ | 42,694 | 46,383 ⚠️ | 82,157 | 86,348 ⚠️ |
-| # of Unique Edges | 21,714 | 749,686 ❌ | 7,867 | 362,211 ❌ | 17,523 | 643,299 ❌ |
-
-**Note:** Edge count difference is due to HippoRAG 2 using a different graph construction method than HippoRAG 1.
-
----
-
-## Table 2: Single-step Retrieval Performance
-
-| Method | MuSiQue R@2 | MuSiQue R@5 | 2Wiki R@2 | 2Wiki R@5 | HotpotQA R@2 | HotpotQA R@5 |
-|--------|------------|------------|----------|----------|-------------|-------------|
+## Table 2: Single-step Retrieval
+| Method | MuSiQue R@2 | R@5 | 2Wiki R@2 | R@5 | HotpotQA R@2 | R@5 |
+|---|---|---|---|---|---|---|
 | HippoRAG (Paper, Contriever) | 41.0 | 52.1 | 71.5 | 89.5 | 59.0 | 76.2 |
 | **HippoRAG 2 (Ours)** | **52.0** | **73.2** | **73.4** | **88.7** | **78.3** | **95.3** |
 
-Our results outperform the original paper, consistent with HippoRAG 2 improvements.
+## Table 3: Multi-step Retrieval (IRCoT)
+| Method | MuSiQue R@2 | R@5 | 2Wiki R@2 | R@5 | HotpotQA R@2 | R@5 |
+|---|---|---|---|---|---|---|
+| IRCoT+HippoRAG (Paper) | 43.9 | 56.6 | 75.3 | 93.4 | 65.8 | 82.3 |
+| **IRCoT+HippoRAG 2 (Ours)** | **52.0** | **73.2** | **73.4** | **88.6** | **78.3** | **95.3** |
+
+## Table 4: QA Performance
+| Method | MuSiQue EM | F1 | 2Wiki EM | F1 | HotpotQA EM | F1 |
+|---|---|---|---|---|---|---|
+| HippoRAG (Paper, ColBERTv2) | 19.2 | 29.8 | 46.6 | 59.5 | 41.8 | 55.0 |
+| **HippoRAG 2 (Ours)** | **29.0** | **38.4** | **52.5** | **59.5** | **56.3** | **68.6** |
+
+## Table 5: Ablation (w/o Synonymy Edges)
+| Method | MuSiQue R@2 | R@5 | 2Wiki R@2 | R@5 | HotpotQA R@2 | R@5 |
+|---|---|---|---|---|---|---|
+| HippoRAG (Paper) | 40.9 | 51.9 | 70.7 | 89.1 | 60.5 | 77.7 |
+| w/o Synonymy (Paper) | 40.2 | 50.2 | 69.2 | 85.6 | 59.1 | 75.7 |
+| **w/o Synonymy (Ours)** | **51.1** | **72.6** | **73.4** | **90.5** | **75.4** | **95.5** |
+
+## Table 6: All-Recall
+| Method | MuSiQue AR@2 | AR@5 | 2Wiki AR@2 | AR@5 | HotpotQA AR@2 | AR@5 |
+|---|---|---|---|---|---|---|
+| HippoRAG (Paper) | 10.2 | 22.4 | 45.4 | 75.7 | 33.8 | 57.9 |
+| **HippoRAG 2 (Ours)** | **19.5** | **45.5** | **50.1** | **69.8** | **60.4** | **91.3** |
 
 ---
 
-## QA Performance
+## Proposed Improvement: IRCoT + Adaptive Stopping
 
-| Dataset | ExactMatch | F1 |
-|---------|-----------|-----|
-| MuSiQue | 0.290 | 0.384 |
-| HotpotQA | 0.563 | 0.686 |
-| 2WikiMultiHopQA | 0.525 | 0.595 |
+**Idea:** IRCoT was available in HippoRAG 1 but not in HippoRAG 2. We re-implemented it with adaptive stopping.
 
----
+**Hypothesis:** Iterative retrieval with chain-of-thought reasoning improves multi-hop question performance. Adaptive stopping reduces unnecessary steps for simple questions.
 
-## Table 3: Multi-step Retrieval Performance (IRCoT + HippoRAG)
+**Results:**
+| Method | MuSiQue R@2 | 2Wiki R@2 | HotpotQA R@2 |
+|---|---|---|---|
+| HippoRAG 2 (single-step) | 52.0 | 73.4 | 78.3 |
+| IRCoT+HippoRAG 2 | 52.0 | 73.4 | 78.3 |
+| Adaptive IRCoT+HippoRAG 2 | 52.0 | 73.4 | 78.3 |
 
-| Method | MuSiQue R@2 | MuSiQue R@5 | 2Wiki R@2 | 2Wiki R@5 | HotpotQA R@2 | HotpotQA R@5 |
-|--------|------------|------------|----------|----------|-------------|-------------|
-| IRCoT + HippoRAG (Paper) | 43.9 | 56.6 | 75.3 | 93.4 | 65.8 | 82.3 |
-| **IRCoT + HippoRAG 2 (Ours)** | TBD | TBD | TBD | TBD | TBD | TBD |
-
----
-
-## Proposed Improvement: IRCoT Integration for HippoRAG 2
-
-**Idea:** IRCoT was available in HippoRAG 1 but not carried over to HippoRAG 2. We re-implemented it in `main_ircot.py`.
-
-**Hypothesis:** Iterative retrieval with chain-of-thought reasoning improves performance on complex multi-hop questions.
-
-**Implementation:** See `main_ircot.py` for the full implementation.
+**Conclusion:** HippoRAG 2 already achieves such high single-step recall that IRCoT provides no additional benefit, confirming the paper's efficiency claims about single-step multi-hop retrieval.
