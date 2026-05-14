@@ -280,6 +280,20 @@ def reproduce_table_5():
     print("\nNote: Full ablation study (PPR alternatives, w/o Node Specificity)")
     print("requires additional experiments not yet completed.")
 
+    # NER improvement results
+    ner_results = {}
+    for ds, path in [('musique','outputs_ner_musique'), ('2wikimultihopqa','outputs_ner_2wikimultihopqa'), ('hotpotqa','outputs_ner_hotpotqa')]:
+        fpath = f'{path}/results_meta-llama_Llama-3.1-8B-Instruct.json'
+        if os.path.exists(fpath):
+            with open(fpath) as f:
+                ner_results[ds] = json.load(f)
+
+    nm2 = ner_results.get('musique', {}).get('retrieval', {}) or {}
+    nw2 = ner_results.get('2wikimultihopqa', {}).get('retrieval', {}) or {}
+    nh2 = ner_results.get('hotpotqa', {}).get('retrieval', {}) or {}
+    if nm2:
+        print(f"{'Better NER (Ours)':<35} {nm2.get('Recall@2',0)*100:>12.1f} {nm2.get('Recall@5',0)*100:>12.1f} {nw2.get('Recall@2',0)*100:>10.1f} {nw2.get('Recall@5',0)*100:>10.1f} {nh2.get('Recall@2',0)*100:>13.1f} {nh2.get('Recall@5',0)*100:>13.1f}")
+
 def reproduce_table_6():
     """Reproduce Table 6: All-Recall Metric"""
     print("\n" + "="*60)
