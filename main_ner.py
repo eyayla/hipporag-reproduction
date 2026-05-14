@@ -1,0 +1,221 @@
+import os
+from typing import List
+import json
+
+from src.hipporag.HippoRAG import HippoRAG
+from src.hipporag.utils.misc_utils import string_to_bool
+from src.hipporag.utils.config_utils import BaseConfig
+
+import argparse
+
+# os.environ["LOG_LEVEL"] = "DEBUG"
+os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
+
+import logging
+
+import random
+import numpy as np
+import torch
+
+random.seed(42)
+np.random.seed(42)
+torch.manual_seed(42)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(42)
+
+def get_gold_docs(samples: List, dataset_name: str = None) -> List:
+    gold_docs = []
+    for sample in samples:
+        if 'supporting_facts' in sample:  # hotpotqa, 2wikimultihopqa
+            gold_title = set([item[0] for item in sample['supporting_facts']])
+            gold_title_and_content_list = [item for item in sample['context'] if item[0] in gold_title]
+            if dataset_name.startswith('hotpotqa'):
+                gold_doc = [item[0] + '\n' + ''.join(item[1]) for item in gold_title_and_content_list]
+            else:
+                gold_doc = [item[0] + '\n' + ' '.join(item[1]) for item in gold_title_and_content_list]
+        elif 'contexts' in sample:
+            gold_doc = [item['title'] + '\n' + item['text'] for item in sample['contexts'] if item['is_supporting']]
+        else:
+            assert 'paragraphs' in sample, "`paragraphs` should be in sample, or consider the setting not to evaluate retrieval"
+            gold_paragraphs = []
+            for item in sample['paragraphs']:
+                if 'is_supporting' in item and item['is_supporting'] is False:
+                    continue
+                gold_paragraphs.append(item)
+            gold_doc = [item['title'] + '\n' + (item['text'] if 'text' in item else item['paragraph_text']) for item in gold_paragraphs]
+
+        gold_doc = list(set(gold_doc))
+        gold_docs.append(gold_doc)
+    return gold_docs
+
+
+def get_gold_answers(samples):
+    gold_answers = []
+    for sample_idx in range(len(samples)):
+        gold_ans = None
+        sample = samples[sample_idx]
+
+        if 'answer' in sample or 'gold_ans' in sample:
+            gold_ans = sample['answer'] if 'answer' in sample else sample['gold_ans']
+        elif 'reference' in sample:
+            gold_ans = sample['reference']
+        elif 'obj' in sample:
+            gold_ans = set(
+                [sample['obj']] + [sample['possible_answers']] + [sample['o_wiki_title']] + [sample['o_aliases']])
+            gold_ans = list(gold_ans)
+        assert gold_ans is not None
+        if isinstance(gold_ans, str):
+            gold_ans = [gold_ans]
+        assert isinstance(gold_ans, list)
+        gold_ans = set(gold_ans)
+        if 'answer_aliases' in sample:
+            gold_ans.update(sample['answer_aliases'])
+
+        gold_answers.append(gold_ans)
+
+    return gold_answers
+
+def main():
+    parser = argparse.ArgumentParser(description="HippoRAG retrieval and QA")
+    parser.add_argument('--dataset', type=str, default='musique', help='Dataset name')
+    parser.add_argument('--llm_base_url', type=str, default='https://api.openai.com/v1', help='LLM base URL')
+    parser.add_argument('--llm_name', type=str, default='gpt-4o-mini', help='LLM name')
+    parser.add_argument('--embedding_name', type=str, default='nvidia/NV-Embed-v2', help='embedding model name')
+    parser.add_argument('--force_index_from_scratch', type=str, default='false',
+                        help='If set to True, will ignore all existing storage files and graph data and will rebuild from scratch.')
+    parser.add_argument('--force_openie_from_scratch', type=str, default='false', help='If set to False, will try to first reuse openie results for the corpus if they exist.')
+    parser.add_argument('--openie_mode', choices=['online', 'offline'], default='online',
+                        help="OpenIE mode, offline denotes using VLLM offline batch mode for indexing, while online denotes")
+    parser.add_argument('--save_dir', type=str, default='outputs', help='Save directory')
+    parser.add_argument('--qa_top_k', type=int, default=5, help='Number of top passages for QA')
+    parser.add_argument('--synonymy_edge_sim_threshold', type=float, default=None)
+    args = parser.parse_args()
+
+    dataset_name = args.dataset
+    save_dir = args.save_dir
+    llm_base_url = args.llm_base_url
+    llm_name = args.llm_name
+    if save_dir == 'outputs':
+        save_dir = save_dir + '/' + dataset_name
+    else:
+        save_dir = save_dir + '_' + dataset_name
+
+    corpus_path = f"reproduce/dataset/{dataset_name}_corpus.json"
+    with open(corpus_path, "r") as f:
+        corpus = json.load(f)
+
+    docs = [f"{doc['title']}\n{doc['text']}" for doc in corpus]
+
+    force_index_from_scratch = string_to_bool(args.force_index_from_scratch)
+    force_openie_from_scratch = string_to_bool(args.force_openie_from_scratch)
+
+    # Prepare datasets and evaluation
+    samples = json.load(open(f"reproduce/dataset/{dataset_name}.json", "r"))
+    all_queries = [s['question'] for s in samples]
+
+    gold_answers = get_gold_answers(samples)
+    try:
+        gold_docs = get_gold_docs(samples, dataset_name)
+        assert len(all_queries) == len(gold_docs) == len(gold_answers)
+    except:
+        gold_docs = None
+
+    config = BaseConfig(
+        save_dir=save_dir,
+        llm_base_url=llm_base_url,
+        llm_name=llm_name,
+        dataset=dataset_name,
+        embedding_model_name=args.embedding_name,
+        force_index_from_scratch=force_index_from_scratch,  # ignore previously stored index, set it to False if you want to use the previously stored index and embeddings
+        force_openie_from_scratch=force_openie_from_scratch,
+        rerank_dspy_file_path="src/hipporag/prompts/dspy_prompts/filter_llama3.3-70B-Instruct.json",
+        retrieval_top_k=200,
+        linking_top_k=5,
+        max_qa_steps=3,
+        qa_top_k=args.qa_top_k,
+        graph_type="facts_and_sim_passage_node_unidirectional",
+        embedding_batch_size=8,
+        max_new_tokens=None,
+        corpus_len=len(corpus),
+        openie_mode=args.openie_mode
+    )
+
+    if args.synonymy_edge_sim_threshold is not None:
+        config.synonymy_edge_sim_threshold = args.synonymy_edge_sim_threshold
+
+    logging.basicConfig(level=logging.INFO)
+
+    hipporag = HippoRAG(global_config=config)
+ 
+    # Override NER query prompt for better entity extraction
+    from string import Template
+    new_ner_system = "You're a very effective entity and concept extraction system.\n"
+    new_prompt = [
+        {"role": "system", "content": new_ner_system},
+        {"role": "user", "content": """Please extract all named entities AND key concepts (relations, attributes) important for solving the question.\nPlace them in json format.\nQuestion: Which magazine was started first Arthur's Magazine or First for Women?\n"""},
+        {"role": "assistant", "content": '\n{"named_entities": ["First for Women", "Arthur\'s Magazine", "started", "first"]}\n'},
+        {"role": "user", "content": "Question: ${query}"}
+    ]
+    # Convert content to Template
+    for msg in new_prompt:
+        msg["content"] = Template(msg["content"])
+    hipporag.prompt_template_manager.templates["ner_query"] = new_prompt
+
+    hipporag.index(docs)
+
+    
+    retrieval_result = None
+    qa_results = None
+    queries_solutions = None
+    try:
+        if gold_docs is not None:
+            query_solutions, retrieval_result = hipporag.retrieve(queries=all_queries, gold_docs=gold_docs)
+        else:
+            query_solutions = hipporag.retrieve(queries=all_queries)
+            retrieval_result = None
+        queries_solutions = query_solutions
+        saved_retrieval_result = retrieval_result  # retrieval sonucunu sakla
+    except Exception as e:
+        logging.warning(f"Retrieval failed: {e}")
+    try:
+        if queries_solutions is not None:
+            result = hipporag.rag_qa(queries=queries_solutions, gold_docs=gold_docs, gold_answers=gold_answers)
+            if result is not None and len(result) >= 5:
+                queries_solutions, _, _, _, qa_results = result
+            retrieval_result = saved_retrieval_result  # saklanan retrieval sonucunu geri yükle
+    except Exception as e:
+        logging.warning(f"QA failed: {e}")
+        logging.warning(f"QA failed: {e}")
+
+    # Per-query all-recall hesapla
+    all_recall_2, all_recall_5 = [], []
+    if queries_solutions:
+        for qs in queries_solutions:
+            if qs.gold_docs and qs.docs:
+                retrieved_set_2 = set(qs.docs[:2])
+                retrieved_set_5 = set(qs.docs[:5])
+                gold_set = set(qs.gold_docs)
+                all_recall_2.append(1.0 if gold_set.issubset(retrieved_set_2) else 0.0)
+                all_recall_5.append(1.0 if gold_set.issubset(retrieved_set_5) else 0.0)
+    ar2 = sum(all_recall_2) / len(all_recall_2) if all_recall_2 else None
+    ar5 = sum(all_recall_5) / len(all_recall_5) if all_recall_5 else None
+
+    out = {
+        'dataset': args.dataset,
+        'llm': args.llm_name,
+        'embedding': args.embedding_name,
+        'retrieval': retrieval_result,
+        'qa': qa_results,
+        'all_recall': {
+            'AR@2': round(ar2, 4) if ar2 is not None else None,
+            'AR@5': round(ar5, 4) if ar5 is not None else None,
+        }
+    }
+    out_path = os.path.join(save_dir, f'results_{args.llm_name.replace("/","_")}.json')
+    with open(out_path, 'w') as f:
+        json.dump(out, f, indent=2)
+    print(f'Results saved to {out_path}')
+
+if __name__ == "__main__":
+    main()
