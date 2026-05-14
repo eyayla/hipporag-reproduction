@@ -84,3 +84,47 @@ python reproduce_tables.py
 ## Proposed Improvement: IRCoT Integration
 
 IRCoT was available in HippoRAG 1 but removed in HippoRAG 2. We re-implemented it in `main_ircot.py`. See [results.md](results.md) for details.
+
+## Improvement Experiments
+
+We implemented and evaluated four improvements on HippoRAG 2:
+
+### 1. IRCoT Integration
+IRCoT was available in HippoRAG 1 but removed in HippoRAG 2. We re-implemented it in `main_ircot.py`.
+
+**Hypothesis:** Iterative retrieval with chain-of-thought reasoning improves multi-hop question performance.
+
+**Result:** No improvement — HippoRAG 2 already achieves high single-step recall, confirming the paper's efficiency claims.
+
+```bash
+sbatch job_ircot_musique.sh
+sbatch job_ircot_hotpotqa.sh
+sbatch job_ircot_2wiki.sh
+```
+
+### 2. Better NER (Key Concepts Extraction)
+Modified the NER prompt to extract both named entities AND key concepts (relations, attributes).
+
+**Hypothesis:** Extracting relational concepts alongside entities will activate more relevant graph nodes during PPR.
+
+**Result:** Marginal improvement on MuSiQue (+0.2 R@2) and HotpotQA (+0.1 EM). Negligible effect on 2Wiki.
+
+```bash
+sbatch job_ner_musique.sh
+sbatch job_ner_hotpotqa.sh
+sbatch job_ner_2wiki.sh
+```
+
+### 3. Query Expansion
+Used LLM to expand queries with related concepts before retrieval (`main_qe.py`).
+
+**Result:** Inconsistent — improved HotpotQA R@2 (+2.7) but hurt MuSiQue and 2Wiki.
+
+### 4. Entity Linking top-k=10
+Increased entity linking top-k from 5 to 10 to activate more graph nodes (`main_linking.py`).
+
+**Result:** Improved HotpotQA R@2 significantly (+5.7) but hurt 2Wiki.
+
+## Overall Conclusion
+
+HippoRAG 2 is already highly optimized. Simple improvements provide marginal or inconsistent gains. The paper's core claim — that single-step retrieval matches iterative methods — holds for HippoRAG 2 as well.
