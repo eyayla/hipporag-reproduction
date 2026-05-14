@@ -58,3 +58,40 @@ This document compares our reproduced results with the original HippoRAG paper.
 | Adaptive IRCoT+HippoRAG 2 | 52.0 | 73.4 | 78.3 |
 
 **Conclusion:** HippoRAG 2 already achieves such high single-step recall that IRCoT provides no additional benefit, confirming the paper's efficiency claims about single-step multi-hop retrieval.
+
+---
+
+## Improvement Experiments Summary
+
+### IRCoT Integration
+| Method | MuSiQue R@2 | 2Wiki R@2 | HotpotQA R@2 |
+|---|---|---|---|
+| HippoRAG 2 (baseline) | 52.0 | 73.4 | 78.3 |
+| IRCoT+HippoRAG 2 | 52.0 | 73.4 | 78.3 |
+| Adaptive IRCoT+HippoRAG 2 | 52.0 | 73.4 | 78.3 |
+
+**Conclusion:** HippoRAG 2 already achieves high single-step recall. IRCoT provides no additional benefit, confirming the paper's efficiency claims.
+
+### Query Expansion
+| Method | MuSiQue R@2 | 2Wiki R@2 | HotpotQA R@2 |
+|---|---|---|---|
+| HippoRAG 2 (baseline) | 52.0 | 73.4 | 78.3 |
+| Query Expansion | 50.2 | 68.3 | 81.0 |
+
+**Conclusion:** Inconsistent results. Adds noise to entity extraction in some datasets.
+
+### Entity Linking top-k=10
+| Method | MuSiQue R@2 | 2Wiki R@2 | HotpotQA R@2 |
+|---|---|---|---|
+| HippoRAG 2 (baseline) | 52.0 | 73.4 | 78.3 |
+| Linking top-k=10 | 52.7 | 69.1 | 84.0 |
+
+**Conclusion:** Improves HotpotQA significantly but hurts 2Wiki.
+
+### Better NER (Key Concepts Extraction)
+| Method | MuSiQue R@2 | 2Wiki R@2 | HotpotQA R@2 | MuSiQue EM | HotpotQA EM |
+|---|---|---|---|---|---|
+| HippoRAG 2 (baseline) | 52.0 | 73.4 | 78.3 | 29.0 | 56.3 |
+| Better NER | 52.2 | 73.3 | 78.3 | 29.2 | 56.4 |
+
+**Conclusion:** Marginal improvements on MuSiQue and HotpotQA. NER prompt modification has limited effect because HippoRAG 2 already uses strong entity extraction.
